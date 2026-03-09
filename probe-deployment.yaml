@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: php-web-probe
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: network-probe
+  template:
+    metadata:
+      labels:
+        app: network-probe
+    spec:
+      volumes:
+        - name: shared-files
+          emptyDir: {}
+        - name: php-src
+          configMap:
+            name: php-content
+      
+      initContainers:
+        - name: install-source
+          image: busybox
+          command: ["sh", "-c", "cp /src/* /var/www/html/"]
+          volumeMounts:
+            - name: php-src
+              mountPath: /src
+            - name: shared-files
+              mountPath: /var/www/html
+
+      containers:
+        # PHP-FPM Processorn
+        - name: php
+          image: php:8.2-fpm-alpine
+          volumeMounts:
+            - name: shared-files
+              mountPath: /var/www/html
+
+        # Nginx Webbserver
+        - name: nginx
+          image: nginx:alpine
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: shared-files
+              mountPath: /var/www/html
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d
+      
+      volumes:
+        - name: shared-files
+          emptyDir: {}
+        - name: php-src
+          configMap:
+            name: php-content
+        - name: nginx-config
+          configMap:
+            name: nginx-conf-simple
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-conf-simple
+data:
+  default.conf: |
+    server {
+        listen 80;
+        root /var/www/html;
+        index index.php index.html;
+
+        location ~ \.php$ {
+            fastcgi_pass localhost:9000;
+            fastcgi_index index.php;
+            include fastcgi_params;
+            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        }
+    }

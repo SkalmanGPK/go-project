@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-conf-simple
+data:
+  default.conf: |
+    server {
+        listen 80;
+        # Detta är mappen inuti containern där vi monterar våra filer
+        root /var/www/html;
+        index index.php index.html;
+
+        server_name localhost;
+
+        location / {
+            try_files $uri $uri/ =404;
+        }
+
+        # Skicka PHP-förfrågningar till PHP-FPM containern via loopback (localhost)
+        location ~ \.php$ {
+            fastcgi_pass 127.0.0.1:9000;
+            fastcgi_index index.php;
+            include fastcgi_params;
+            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        }
+    }

@@ -1,0 +1,148 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: php-content
+data:
+  index.php: |
+    <?php
+
+    // If this is an AJAX request, call the API and return JSON
+    if (isset($_GET['action']) && $_GET['action'] === 'weather') {
+
+        $start = microtime(true);
+
+        $lat = "59.33";   // Stockholm
+        $lon = "18.06";
+
+        $api_url = "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current_weather=true";
+
+        $response = file_get_contents($api_url);
+        $data = json_decode($response, true);
+
+        $latency = round((microtime(true) - $start) * 1000, 2);
+
+        echo json_encode([
+            "temperature" => $data["current_weather"]["temperature"],
+            "windspeed" => $data["current_weather"]["windspeed"],
+            "latency" => $latency,
+            "timestamp" => date("H:i:s")
+        ]);
+
+        exit;
+    }
+    ?>
+
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>API Stress Dashboard</title>
+
+        <style>
+        body{
+            background:#111;
+            color:#eee;
+            font-family:Arial;
+            text-align:center;
+        }
+
+        .container{
+            margin-top:50px;
+        }
+
+        button{
+            padding:12px 20px;
+            margin:10px;
+            font-size:16px;
+            border:none;
+            border-radius:6px;
+            cursor:pointer;
+        }
+
+        .fetch{
+            background:#4CAF50;
+            color:white;
+        }
+
+        .burst{
+            background:#ff5722;
+            color:white;
+        }
+
+        .stats{
+            margin-top:30px;
+            font-size:18px;
+        }
+
+        .output{
+            margin-top:20px;
+            padding:20px;
+            background:#222;
+            border-radius:10px;
+            width:400px;
+            margin-left:auto;
+            margin-right:auto;
+        }
+        </style>
+    </head>
+
+    <body>
+
+    <div class="container">
+
+        <h1>API Stress Test Dashboard</h1>
+
+        <p>This page generates API traffic for monitoring experiments.</p>
+
+        <button class="fetch" onclick="singleRequest()">Single API Request</button>
+        <button class="burst" onclick="burstRequests()">Burst Mode (20 requests)</button>
+
+        <div class="stats">
+            <p>Total Requests: <span id="count">0</span></p>
+            <p>Average Latency: <span id="latency">0</span> ms</p>
+        </div>
+
+        <div class="output">
+            <p><b>Temperature:</b> <span id="temp">-</span> °C</p>
+            <p><b>Wind Speed:</b> <span id="wind">-</span> km/h</p>
+            <p><b>Last Update:</b> <span id="time">-</span></p>
+        </div>
+
+    </div>
+
+    <script>
+
+    let requestCount = 0
+    let latencyTotal = 0
+
+    async function callAPI(){
+
+        const res = await fetch("?action=weather")
+        const data = await res.json()
+
+        requestCount++
+        latencyTotal += data.latency
+
+        document.getElementById("count").innerText = requestCount
+        document.getElementById("latency").innerText = (latencyTotal / requestCount).toFixed(2)
+
+        document.getElementById("temp").innerText = data.temperature
+        document.getElementById("wind").innerText = data.windspeed
+        document.getElementById("time").innerText = data.timestamp
+    }
+
+    function singleRequest(){
+        callAPI()
+    }
+
+    async function burstRequests(){
+
+        for(let i=0;i<20;i++){
+            callAPI()
+        }
+
+    }
+
+    </script>
+
+    </body>
+    </html>

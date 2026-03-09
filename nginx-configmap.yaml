@@ -6,7 +6,7 @@ data:
   default.conf: |
     server {
         listen 80;
-        # Detta är mappen inuti containern där vi monterar våra filer
+        # map for mounting files
         root /var/www/html;
         index index.php index.html;
 
